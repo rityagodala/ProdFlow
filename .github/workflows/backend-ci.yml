@@ -1,0 +1,62 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'backend/**'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'backend/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: prodflow
+          POSTGRES_PASSWORD: prodflow
+          POSTGRES_DB: prodflow
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run Ruff
+      working-directory: ./backend
+      run: |
+        ruff check .
+
+    - name: Run MyPy
+      working-directory: ./backend
+      run: |
+        mypy app/ || true
+
+    - name: Run tests
+      working-directory: ./backend
+      env:
+        DATABASE_URL: postgresql://prodflow:prodflow@localhost:5432/prodflow
+      run: |
+        pytest -v
+
